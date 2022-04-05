@@ -1,16 +1,12 @@
 // ------
 // @name         Flight Rising Item Tooltip Parser
-// @version      0.3
+// @version      0.4
 // @updated      2021-01-01
 // @description  Parses Flight Rising item tooltips.
-// @require      JQuery                          // FIXME
-// @require      tabTool
+// @require      https://code.jquery.com/jquery-1.10.2.min.js
+// @require      https://github.com/jickyk/fr_userscripts/blob/main/tab_tool.js
 // @author       Jicky
 // ------
-
-// TODO:
-// * Require tabTool (currently only correctly IDS tab in AH)
-// * Require correct version of JQuery
 
 var itemTooltipParser = (function() {
 
