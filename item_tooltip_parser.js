@@ -1,14 +1,16 @@
-// ------
+// ==UserScript==
 // @name         Flight Rising Item Tooltip Parser
-// @version      0.4
-// @updated      2021-01-01
-// @description  Parses Flight Rising item tooltips.
-// @require      https://code.jquery.com/jquery-1.10.2.min.js
-// @require      https://github.com/jickyk/fr_userscripts/blob/main/tab_tool.js
+// @namespace    https://greasyfork.org/users/547396
+// @match        https://*.flightrising.com/*
+// @grant        none
+// @version      0.5
 // @author       Jicky
-// ------
+// @description  Parses Flight Rising item tooltips. Updated 2022-04-05.
+// @icon         https://www.google.com/s2/favicons?domain=flightrising.com
+// @license      GPL-3.0-or-later
+// ==/UserScript==
 
-var itemTooltipParser = (function() {
+function itemTooltipParser() {
 
     // PRIVATE MEMBERS
     // ------
@@ -79,8 +81,6 @@ var itemTooltipParser = (function() {
 
 
     return publicMembers;
-})();
+};
 
 window.itemTooltipParser = itemTooltipParser;
-
-window.parseItemTooltips = itemTooltipParser.parseAll;
