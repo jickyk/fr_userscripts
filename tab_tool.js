@@ -78,7 +78,7 @@ var tabTool = (function() {
 
 
   // ---
-  // FUNCTIONS
+  // PROCESSING
   // ---
 
   // FIXME: Some modules may refer to `isValid`, which is ambiguous; fix those, then remove
@@ -90,22 +90,21 @@ var tabTool = (function() {
 
   // valid `type`s: 'ah','market','hoard','legacy'
   function validTabsFor(type) {
-    if (type=='vault' || type=='inventory') {type='hoard'} else if (type=='auction') {type='ah'}
     let output = new Set();
     for (const [id,tabSet] of Object.entries(tabSets)) {
       let nameSet = tabSet[type];
-      if (!nameSet) { // do nothing 
+      if (!nameSet) { // skip this one
       } else if (typeof(nameSet)=='string') { 
         output.add(nameSet);
       } else { 
         for (const name of nameSet) { output.add(name); } 
       }
     }
-    return output; // if (output.size>0) return output;
+    return Array.from(output);
   }
 
   function getTabId(args) {
-    if (typeof(args)=='string') { return stringToTabId(args); }
+    if (typeof(args)!='object') return stringToTabId(args);
     let tabName = args.tab || args.tabName;
     let category = args.category || args.cat || args.subcategory;
     let url = args.url;
@@ -169,11 +168,11 @@ var tabTool = (function() {
     if (['string','null','undefined'].includes(typeof(mktTab))) { 
       return mktTab;
     } else if (tabId=='other') {
-      if (item.category && item.category.startsWith('Chest')) {
+      if (item.category && item.category.toLowerCase().startsWith('chest')) {
         return 'bundles';
       }
     } else if (tabId=='specialty') {
-      if ((item.category && ['Forum Vista','Scene'].includes(item.category)) || /^(Scene|Vista)/.exec(item.name)) {
+      if ((item.category && ['forum vista','scene','vista'].includes(item.category.toLowerCase())) || /^(Scene|Vista)/.exec(item.name)) {
         return 'scenes'; 
       } else if (/^(Primary|Secondary|Tertiary|Breed\sChange|Remove\sGene)/.exec(item.name)) {
         return 'genes';
@@ -193,6 +192,10 @@ var tabTool = (function() {
     return null;
   }
   publicMembers.categoryToTab = categoryToTab;
+
+  // ---
+  // PARSING
+  // ---
 
   function parseDocumentTab(doc) {
     doc ||= document;
@@ -231,6 +234,12 @@ var tabTool = (function() {
     return null;
   }
   publicMembers.parseUrlTab = parseUrlTab;
+
+  function parseCurrentTab(doc, url) {
+    let tab = parseDocumentTab(doc);
+    if (tab) { return tab; } else { return parseUrlTab(url); }
+  }
+  publicMembers.parseCurrentTab = parseCurrentTab;
 
   return publicMembers;
 })();
