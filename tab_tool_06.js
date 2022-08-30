@@ -91,7 +91,7 @@ var tabTool = (function() {
   // valid `type`s: 'ah','market','hoard','legacy'
   function validTabsFor(type) {
     let output = new Set();
-    for (const [id,tabSet] of Object.entries(tabSets)) {
+    for (const [id,tabSet] of Object.entries(tabsByType)) {
       let nameSet = tabSet[type];
       if (!nameSet) { // skip this one
       } else if (typeof(nameSet)=='string') { 
@@ -154,7 +154,7 @@ var tabTool = (function() {
 
   function getItemTabSet(item) {
     let tabId = getTabId({ tab: item.tab, category: item.category });
-    let tabSet = tabSets[tabId];
+    let tabSet = tabsByType[tabId];
     if (tabSet && (tabId=='other' || tabId=='specialty')) {
       tabSet.market = getItemMarketTab({ tabId: tabId, category: item.category, name: item.name });
     }
