@@ -88,14 +88,13 @@ var tabTool = (function() {
   publicMembers.isValidTabId = isValidTabId;
   publicMembers.isValid = isValidTabId; // FIXME: Remove alias later
 
-  // valid types = 'ah','market','hoard','legacy'
+  // valid `type`s: 'ah','market','hoard','legacy'
   function validTabsFor(type) {
     if (type=='vault' || type=='inventory') {type='hoard'} else if (type=='auction') {type='ah'}
     let output = new Set();
     for (const [id,tabSet] of Object.entries(tabSets)) {
       let nameSet = tabSet[type];
-      if (!nameSet) { 
-        // do nothing 
+      if (!nameSet) { // do nothing 
       } else if (typeof(nameSet)=='string') { 
         output.add(nameSet);
       } else { 
@@ -114,19 +113,19 @@ var tabTool = (function() {
     let tabId = null;
     if (tabName) {
       tabId = stringToTabId(tabName);
-      if (tabId) { return tabId; }
+      if (tabId) return tabId;
     }
     if (category) {
       tabId = categoryToTab(category);
-      if (tabId) { return tabId; }
+      if (tabId) return tabId;
     }
     if (url) {
       tabId = urlToTab(url);
-      if (tabId) { return tabId; }
+      if (tabId) return tabId;
     }
     if (doc) {
       tabId = parseDocumentTab(doc);
-      if (tabId) { return tabId; }
+      if (tabId) return tabId;
     }
     return null;
   }
@@ -138,7 +137,7 @@ var tabTool = (function() {
       return tabName;
     } else if (tabName!='trinket' && tabName!='trinkets') {
       for (const [validTabId,aliases] of Object.entries(tabAliases)) {
-        if (aliases.includes(tabName)) { return validTabId; }
+        if (aliases.includes(tabName)) return validTabId;
       }
     }
     return null;
@@ -158,13 +157,13 @@ var tabTool = (function() {
     let tabId = getTabId({ tab: item.tab, category: item.category });
     let tabSet = tabSets[tabId];
     if (tabSet && (tabId=='other' || tabId=='specialty')) {
-      tabSet.market = getMarketTab({ tabId: tabId, category: item.category, name: item.name });
+      tabSet.market = getItemMarketTab({ tabId: tabId, category: item.category, name: item.name });
     }
     return tabSet;
   }
   publicMembers.getItemTabSet = getItemTabSet;
 
-  function getMarketTab(item) {
+  function getItemMarketTab(item) {
     let tabId = (item.tabId || getTabId(item));
     let mktTab = tabsByType[tabId].market;
     if (['string','null','undefined'].includes(typeof(mktTab))) { 
@@ -184,7 +183,7 @@ var tabTool = (function() {
     }
     return null;
   }
-  publicMembers.getMarketTab = getMarketTab;
+  publicMembers.getItemMarketTab = getItemMarketTab;
 
   function categoryToTab(category) {
     category = category.toLowerCase();
@@ -198,16 +197,12 @@ var tabTool = (function() {
   function parseDocumentTab(doc) {
     doc ||= document;
     let node, tabName;
-
-    // Works in Market, AH Sell, Hoard/Vault:
-    node = doc.querySelector('input[name="tab"]');
+    node = doc.querySelector('input[name="tab"]'); // in Market, Hoard, AH Sell
     if (node) {
       tabName = stringToTabId(node.getAttribute('value'));
       if (tabName) return tabName;
     }
-
-    // Works in AH Buy:
-    node = doc.querySelector('span.ah-current-tab');
+    node = doc.querySelector('span.ah-current-tab'); // in AH Buy
     if (node) {
       tabName = stringToTabId(node.innerText.trim());
       if (tabName) return tabName;
@@ -218,17 +213,15 @@ var tabTool = (function() {
 
   function parseUrlTab(url) {
     url ||= window.location.href;
-    if (!url) { return null; }
-    let match;
-    let regexs = [
+    if (!url) return null;
+    for (const rx of [
       /auction-house\/(sell|buy)\/\w+\/(?<tab>\w+)/,
       /market\/(treasure|gem)\/(?<tab>\w+)/,
       /(hoard|vault)\/(?<tab>\w+)/,
       /game-database\/items\/(?<tab>\w+)/
-    ]
-    for (const rx of regexs) {
-      match = rx.exec(url)
-      if (match) { return stringToTabId(match.groups.tab); }
+    ]) {
+      let m = rx.exec(url)
+      if (m) { return stringToTabId(m.groups.tab); }
     }
     if (url.includes('/bestiary')) {
       return 'fam';
