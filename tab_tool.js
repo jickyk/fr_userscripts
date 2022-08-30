@@ -1,176 +1,248 @@
 // ------
 // @name         Flight Rising - Tab Identification Tools
-// @version      0.4
+// @namespace    https://greasyfork.org/users/683745-jicky
+// @version      0.5
 // @description  Parser to identify currently-active inventory tab in Flight Rising (flightrising.com).
 // @author       Jicky
+// @license      GPL-3.0-or-later
 // ------
 
 var frTabTool = (function() {
+  var publicMembers = {};
 
-    // DATA
-    // ------
+  // DATA
+  // ------
 
-    var validTabs = ['food','mats','app','dragons','fam','battle','skins','specialty','other'];
+  const tabIds = ['food','mats','app','dragons','fam','battle','skins','specialty','other'];
 
-    var tabAliases = {
-        food: ['food'],
-        mats: ['mats','materials','material','trinket','trinkets'],
-        app: ['app','apparel','equipment'],
-        dragons: ['dragon'],
-        fam: ['fam','familiars','familiar'],
-        battle: ['battle','battle_items','battle items'],
-        skins: ['skins','skin'],
-        specialty: ['specialty','genes','scenes','scenes & vistas','special','trinket','trinkets'],
-        other: ['other','bundles','bundle','trinket','trinkets'],
-    };
+  const tabAliases = {
+    food: ['food'],
+    mats: ['mats','materials','material','trinket','trinkets'],
+    app: ['app','apparel','equipment'],
+    dragons: ['dragons','dragon'],
+    fam: ['fam','familiars','familiar'],
+    battle: ['battle','battle_items','battle items'],
+    skins: ['skins','skin'],
+    specialty: ['specialty','genes','scenes','scenes & vistas','special','trinket','trinkets'],
+    other: ['other','bundles','bundle','trinket','trinkets'],
+  };
 
-    var tabCategories = {
-        food: ['plant','insect','meat','seafood'],
-        mats: ['dragonmade','minerals & ores','organics','transmutation','dragonmade material','organic material'],
-        app: ['apparel'],
-        dragons: [],
-        fam: ['familiar'],
-        battle: ['ability stone','accessory stone','augment stone','battle item','energy stone'],
-        specialty: ['forum vista','specialty items','specialty item'],
-        other: ['blueprints','chests','dragon eggs','holiday items','trinkets','chest','holiday item','trinket','dragon egg','blueprint'],
-        skins: ['banescale female only','banescale male only','bogsneak female only','bogsneak male only','coatl female only','coatl male only','fae female only','fae male only','gaoler female only','gaoler male only','guardian female only','guardian male only','imperial female only','imperial male only','mirror female only','mirror male only','nocturne female only','nocturne male only','obelisk female only','obelisk male only','pearlcatcher female only','pearlcatcher male only','ridgeback female only','ridgeback male only','skydancer female only','skydancer male only','snapper female only','snapper male only','spiral female only','spiral male only','tundra female only','tundra male only','veilspun female only','veilspun male only','wildclaw female only','wildclaw male only']
-    };
+  const tabsByType = {
+    food: {ah: 'food', hoard: 'food', market: null, legacy: 'food'}, 
+    mats: {ah: 'mats', hoard: 'materials', market: null, legacy: 'trinket'}, 
+    app: {ah: 'app', hoard: 'apparel', market: 'apparel', legacy: 'equipment'}, 
+    fam: {ah: 'fam', hoard: 'familiars', market: 'familiars', legacy: 'familiar'}, 
+    battle: {ah: 'battle', hoard: 'battle', market: 'battle', legacy: 'battle_items'},
+    skins: {ah: 'skins', hoard: 'skins', market: 'skins', legacy: 'skins'}, 
+    specialty: {ah: 'specialty', hoard: 'specialty', market: ['specialty', 'genes', 'scenes'], legacy: 'trinket'}, 
+    other: {ah: 'other', hoard: 'other', market: 'bundles', legacy: 'trinket'},
+  };
 
-    // // Dynamically generate skins list using list of currently-available dragon breeds:
-    // 
-    // var dragonBreeds = ["banescale", "bogsneak", "coatl", "fae", "gaoler", "guardian", "imperial", "mirror", "nocturne", "obelisk", "pearlcatcher", "ridgeback", "skydancer", "snapper", "spiral", "tundra", "veilspun", "wildclaw"];
-    // tabCategories.skins = [];
-    // for (const breed in dragonBreeds) {
-    //     tabCategories.skins.push(`${breed} male only`);
-    //     tabCategories.skins.push(`${breed} female only`);
-    // }
+  // As of 2022-08-27
+  const dragonBreeds = ['aberration','banescale','bogsneak','coatl','fae','gaoler','guardian','imperial','mirror','nocturne','obelisk','pearlcatcher','ridgeback','skydancer','snapper','spiral','tundra','veilspun','wildclaw'];
 
-
-    var publicMembers = {};
-
-    function data() {
-        return { validTabs: validTabs, aliases: tabAliases, categories: tabCategories };
+  // Generates skin tab categories list using currently-available dragon breeds
+  function skinCategories(breeds) {
+    breeds ||= dragonBreeds;
+    let cats = [];
+    for (const breed in dragonBreeds) {
+      cats.push(`${breed} male only`);
+      cats.push(`${breed} female only`);
     }
-    publicMembers.data = data;
+    return cats;
+  }
 
-    function isValid(tabName) {
-        return !!validTabs.includes(tabName);
+  function tabCategories() {
+    return {
+      food: ['plant','insect','meat','seafood'],
+      mats: ['dragonmade','minerals & ores','organics','transmutation','dragonmade material','organic material'],
+      app: ['apparel'],
+      dragons: [],
+      fam: ['familiar'],
+      battle: ['ability stone','accessory stone','augment stone','energy stone','battle item','consumable'],
+      specialty: ['forum vista','vista','scene','specialty items','specialty item'],
+      other: ['blueprints','chests','dragon eggs','holiday items','trinkets','chest','holiday item','trinket','dragon egg','blueprint'],
+      skins: skinCategories(),
     }
-    publicMembers.isValid = isValid;
+  };
 
-    function identifyTabFrom(args) {
-        let tabName = args.tab || args.tabName;
-        let category = args.category || args.cat || args.subcategory;
-        let url = args.url;
-        let doc = args.doc || args.document || args.page;
+  
+  // ---
+  // PUBLIC MEMBERS
+  // ---
 
-        let validTab = null;
-        if (tabName) {
-            validTab = normalizeTab(tabName);
-            if (validTab) { return validTab; }
-        }
-        if (category) {
-            validTab = categoryToTab(category);
-            if (validTab) { return validTab; }
-        }
-        if (url) {
-            validTab = urlToTab(url);
-            if (validTab) { return validTab; }
-        }
-        if (doc) {
-            validTab = pageToTab(doc);
-            if (validTab) { return validTab; }
-        }
-        return null;
+  function data() {
+    return { byType: tabsByType, ids: tabIds, aliases: tabAliases, categories: tabCategories() };
+  }
+  publicMembers.data = data;
+
+
+  // ---
+  // FUNCTIONS
+  // ---
+
+  // FIXME: Some modules may refer to `isValid`, which is ambiguous; fix those, then remove
+  function isValidTabId(tabName) {
+    return !!tabIds.includes(tabName);
+  }
+  publicMembers.isValidTabId = isValidTabId;
+  publicMembers.isValid = isValidTabId; // FIXME: Remove alias later
+
+  function validTabsFor(type) {
+    if (type=='vault' || type=='inventory') {type='hoard'} else if (type=='auction') {type='ah'}
+    let output = new Set();
+    for (const [id,tabSet] of Object.entries(tabSets)) {
+      let nameSet = tabSet[type];
+      if (!nameSet) { // do nothing 
+      } else if (typeof(nameSet)=='string') { output.add(nameSet);
+      } else { for (const name of nameSet) {output.add(name);} }
     }
-    publicMembers.identifyTabFrom = identifyTabFrom;
+    return output; // if (output.size>0) return output;
+  }
+  function validAhTabs() { return validTabsFor('ah') }
+  function validMarketTabs() { return validTabsFor('market') }
+  function validHoardTabs() { return validTabsFor('hoard') }
+  function validLegacyTabs() { return validTabsFor('legacy') }
 
-    function normalizeTab(tabName) {
-        tabName = tabName.toLowerCase();
-        if (validTabs.includes(tabName)) {
-            return tabName;
-        } else if (tabName!='trinket' && tabName!='trinkets') {
-            for (const [validTab,aliases] of Object.entries(tabAliases)) {
-                if (aliases.includes(tabName)) { return validTab; }
-            }
-        }
-        return null;
+  function getTabId(args) {
+    if (typeof(args)=='string') { return stringToTabId(args); }
+    let tabName = args.tab || args.tabName;
+    let category = args.category || args.cat || args.subcategory;
+    let url = args.url;
+    let doc = args.doc || args.document || args.page;
+    let tabId = null;
+    if (tabName) {
+      tabId = stringToTabId(tabName);
+      if (tabId) { return tabId; }
     }
-    publicMembers.normalizeTab = normalizeTab;
-
-    function categoryToTab(category) {
-        category = category.toLowerCase();
-        for (const [tabName,categories] of Object.entries(tabCategories)) {
-            if (categories.includes(category)) { return tabName; }
-        }
-        return null;
+    if (category) {
+      tabId = categoryToTab(category);
+      if (tabId) { return tabId; }
     }
-    publicMembers.categoryToTab = categoryToTab;
-
-    function urlToTab(url) {
-        url ||= window.location.href;
-        if (!url) { return null; }
-
-        let match;
-        let regexs = [
-            /auction-house\/(sell|buy)\/\w+\/(?<tab>\w+)/,
-            /market\/(treasure|gem)\/(?<tab>\w+)/,
-            /(hoard|vault)\/(?<tab>\w+)/,
-            /game-database\/items\/(?<tab>\w+)/
-        ]
-        for (const rx of regexs) {
-            match = rx.exec(url)
-            if (match) { return normalizeTab(match.groups.tab); }
-        }
-
-        if (url.includes('/bestiary')) {
-            return 'fam';
-        } else if (/(\/(lair|den)\/|(tab=hatchery)|(\/nest))/.exec(url)) {
-            return 'dragons';
-        }
-
-        return null;
+    if (url) {
+      tabId = urlToTab(url);
+      if (tabId) { return tabId; }
     }
-    publicMembers.urlToTab = urlToTab;
+    if (doc) {
+      tabId = parseDocumentTab(doc);
+      if (tabId) { return tabId; }
+    }
+    return null;
+  }
+  publicMembers.getTabId = getTabId;
 
-    function isDragonPage(url) {
-        url ||= window.location.href;
-        let rx = /(\/(lair|den)\/|(tab=hatchery)|(\/nest))/
-        return !!rx.exec(url);
+  function stringToTabId(tabName) {
+    tabName = tabName.toLowerCase();
+    if (isValidTabId(tabName)) {
+      return tabName;
+    } else if (tabName!='trinket' && tabName!='trinkets') {
+      for (const [validTabId,aliases] of Object.entries(tabAliases)) {
+        if (aliases.includes(tabName)) { return validTabId; }
+      }
+    }
+    return null;
+  }
+  publicMembers.stringToTabId = stringToTabId;
+
+  function getTabSet(val) {
+    if (typeof(val)=='string') {
+      return tabsByType[stringToTabId(val)];
+    } else {
+      return getItemTabSet(val);
+    }
+  }
+  publicMembers.getTabSet = getTabSet;
+
+  function getItemTabSet(item) {
+    let tabId = getTabId({ tab: item.tab, category: item.category });
+    let tabSet = tabSets[tabId];
+    if (tabSet && (tabId=='other' || tabId=='specialty')) {
+      tabSet.market = getMarketTab({ tabId: tabId, category: item.category, name: item.name });
+    }
+    return tabSet;
+  }
+  publicMembers.getItemTabSet = getItemTabSet;
+
+  function getMarketTab(item) {
+    let tabId = item.tabId;
+    tabId ||= getTabId(item);
+    if (!tabId || tabId=='food' || tabId=='mats') { return null; }
+    else if (tabId=='app') { return 'apparel'; }
+    else if (tabId=='battle') { return 'battle'; }
+    else if (tabId=='fam') { return 'familiars'; }
+    else if (tabId=='skins') { return 'skins'; }
+    else if (tabId=='other') {
+      if (item.category && item.category.startsWith('Chest')) {
+        return 'bundles'; 
+      } else { return null; }
+    }
+    else if (tabId=='specialty') {
+      if ((item.category && ['Forum Vista','Scene'].includes(item.category)) || /^(Scene|Vista)/.exec(item.name)) {
+        return 'scenes'; 
+      } else if (/^(Primary|Secondary|Tertiary|Breed\sChange|Remove\sGene)/.exec(item.name)) {
+        return 'genes';
+      } else {
+        return 'specialty';
+      }
+    }
+    return null;
+  }
+  publicMembers.getMarketTab = getMarketTab;
+
+  function categoryToTab(category) {
+    category = category.toLowerCase();
+    for (const [tabName,categories] of Object.entries(tabCategories())) {
+      if (categories.includes(category)) { return tabName; }
+    }
+    return null;
+  }
+  publicMembers.categoryToTab = categoryToTab;
+
+  function parseDocumentTab(doc) {
+    doc ||= document;
+    let node, tabName;
+
+    // Works in Market, AH Sell, Hoard/Vault:
+    node = doc.querySelector('input[name="tab"]');
+    if (node) {
+      tabName = stringToTabId(node.getAttribute('value'));
+      if (tabName) return tabName;
     }
 
-    function pageToTab(doc) {
-        doc ||= document;
-        let node, tabName;
-
-        // Works in: Market, AH Sell (not Buy), Hoard/Vault.
-        node = doc.querySelector('input[name="tab"]');
-        if (node) {
-            tabName = normalizeTab(node.getAttribute('value'));
-            if (tabName) { return tabName; }
-        }
-
-        node = doc.querySelector('span.ah-current-tab')
-        if (node) {
-            tabName = normalizeTab(node.innerText.trim());
-            if (tabName) { return tabName; }
-        }
-
-        return null;
+    // Works in AH Buy:
+    node = doc.querySelector('span.ah-current-tab');
+    if (node) {
+      tabName = stringToTabId(node.innerText.trim());
+      if (tabName) return tabName;
     }
-    publicMembers.pageToTab = pageToTab;
+    return null;
+  }
+  publicMembers.parseDocumentTab = parseDocumentTab;
 
-    // Works in: Market, AH Sell (not Buy), Hoard/Vault.
-    function marketPageToTab(doc) {
-        doc ||= document;
-        let div = doc.querySelector('input[name="tab"]');
-        if (!div) { return null; }
-        let tabName = div.getAttribute('value');
-        return normalizeTab(tabName);
+  function parseUrlTab(url) {
+    url ||= window.location.href;
+    if (!url) { return null; }
+    let match;
+    let regexs = [
+      /auction-house\/(sell|buy)\/\w+\/(?<tab>\w+)/,
+      /market\/(treasure|gem)\/(?<tab>\w+)/,
+      /(hoard|vault)\/(?<tab>\w+)/,
+      /game-database\/items\/(?<tab>\w+)/
+    ]
+    for (const rx of regexs) {
+      match = rx.exec(url)
+      if (match) { return stringToTabId(match.groups.tab); }
     }
-    publicMembers.marketPageToTab = marketPageToTab;
+    if (url.includes('/bestiary')) {
+      return 'fam';
+    } else if (/(\/(lair|den)\/|(tab=hatchery)|(\/nest))/.exec(url)) {
+      return 'dragons';
+    }
+    return null;
+  }
+  publicMembers.parseUrlTab = parseUrlTab;
 
-    return publicMembers;
+  return publicMembers;
 })();
 
 window.frTabTool = frTabTool;
