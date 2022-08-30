@@ -1,13 +1,13 @@
 // ------
-// @name         Flight Rising - Tab Identification Tools
+// @name         tabTool - flightrising.com
 // @namespace    https://greasyfork.org/users/683745-jicky
-// @version      0.5
+// @version      0.6
 // @description  Parser to identify currently-active inventory tab in Flight Rising (flightrising.com).
 // @author       Jicky
 // @license      GPL-3.0-or-later
 // ------
 
-var frTabTool = (function() {
+var tabTool = (function() {
   var publicMembers = {};
 
   // DATA
@@ -35,7 +35,7 @@ var frTabTool = (function() {
     battle: {ah: 'battle', hoard: 'battle', market: 'battle', legacy: 'battle_items'},
     skins: {ah: 'skins', hoard: 'skins', market: 'skins', legacy: 'skins'}, 
     specialty: {ah: 'specialty', hoard: 'specialty', market: ['specialty', 'genes', 'scenes'], legacy: 'trinket'}, 
-    other: {ah: 'other', hoard: 'other', market: 'bundles', legacy: 'trinket'},
+    other: {ah: 'other', hoard: 'other', market: ['bundles'], legacy: 'trinket'},
   };
 
   // As of 2022-08-27
@@ -88,21 +88,22 @@ var frTabTool = (function() {
   publicMembers.isValidTabId = isValidTabId;
   publicMembers.isValid = isValidTabId; // FIXME: Remove alias later
 
+  // valid types = 'ah','market','hoard','legacy'
   function validTabsFor(type) {
     if (type=='vault' || type=='inventory') {type='hoard'} else if (type=='auction') {type='ah'}
     let output = new Set();
     for (const [id,tabSet] of Object.entries(tabSets)) {
       let nameSet = tabSet[type];
-      if (!nameSet) { // do nothing 
-      } else if (typeof(nameSet)=='string') { output.add(nameSet);
-      } else { for (const name of nameSet) {output.add(name);} }
+      if (!nameSet) { 
+        // do nothing 
+      } else if (typeof(nameSet)=='string') { 
+        output.add(nameSet);
+      } else { 
+        for (const name of nameSet) { output.add(name); } 
+      }
     }
     return output; // if (output.size>0) return output;
   }
-  function validAhTabs() { return validTabsFor('ah') }
-  function validMarketTabs() { return validTabsFor('market') }
-  function validHoardTabs() { return validTabsFor('hoard') }
-  function validLegacyTabs() { return validTabsFor('legacy') }
 
   function getTabId(args) {
     if (typeof(args)=='string') { return stringToTabId(args); }
@@ -164,19 +165,15 @@ var frTabTool = (function() {
   publicMembers.getItemTabSet = getItemTabSet;
 
   function getMarketTab(item) {
-    let tabId = item.tabId;
-    tabId ||= getTabId(item);
-    if (!tabId || tabId=='food' || tabId=='mats') { return null; }
-    else if (tabId=='app') { return 'apparel'; }
-    else if (tabId=='battle') { return 'battle'; }
-    else if (tabId=='fam') { return 'familiars'; }
-    else if (tabId=='skins') { return 'skins'; }
-    else if (tabId=='other') {
+    let tabId = (item.tabId || getTabId(item));
+    let mktTab = tabsByType[tabId].market;
+    if (['string','null','undefined'].includes(typeof(mktTab))) { 
+      return mktTab;
+    } else if (tabId=='other') {
       if (item.category && item.category.startsWith('Chest')) {
-        return 'bundles'; 
-      } else { return null; }
-    }
-    else if (tabId=='specialty') {
+        return 'bundles';
+      }
+    } else if (tabId=='specialty') {
       if ((item.category && ['Forum Vista','Scene'].includes(item.category)) || /^(Scene|Vista)/.exec(item.name)) {
         return 'scenes'; 
       } else if (/^(Primary|Secondary|Tertiary|Breed\sChange|Remove\sGene)/.exec(item.name)) {
@@ -245,4 +242,4 @@ var frTabTool = (function() {
   return publicMembers;
 })();
 
-window.frTabTool = frTabTool;
+window.tabTool = tabTool;
